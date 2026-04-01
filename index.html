@@ -22,16 +22,15 @@
             user-select: none;
         }
 
-        h1 { color: var(--primary); margin-bottom: 10px; }
+        h1 { color: var(--primary); margin-bottom: 20px; }
 
-        /* Переключатель режимов */
         .mode-selector {
             display: flex;
-            gap: 5px;
+            gap: 10px;
+            margin-bottom: 20px;
             background: #e2e8f0;
             padding: 5px;
             border-radius: 12px;
-            margin-bottom: 20px;
         }
 
         .mode-btn {
@@ -39,10 +38,10 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-weight: 600;
-            transition: 0.2s;
+            font-weight: bold;
             color: #64748b;
             background: transparent;
+            transition: 0.2s;
         }
 
         .mode-btn.active {
@@ -58,20 +57,26 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             margin-bottom: 20px;
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             text-align: center;
         }
 
-        .control-group { margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; }
-        label { font-weight: 600; font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+        .control-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; }
+        label { font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase; }
 
         input[type=range] { appearance: none; width: 100%; height: 6px; background: #e2e8f0; border-radius: 5px; outline: none; }
         input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: var(--primary); border-radius: 50%; cursor: pointer; border: 2px solid white; }
 
-        /* Игровые элементы */
-        #game-info { font-size: 1.2rem; font-weight: bold; color: #ef4444; margin-bottom: 10px; min-height: 1.5rem; }
+        #game-status {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ef4444;
+            min-height: 1.6rem;
+            line-height: 1.4;
+        }
 
-        .table-container { overflow: auto; max-width: 98vw; padding: 10px; background: white; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+        .table-container { overflow: auto; max-width: 95vw; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
         
         table { border-collapse: collapse; table-layout: fixed; }
         td, th {
@@ -82,19 +87,18 @@
             font-size: 0.85rem;
             box-sizing: border-box;
             cursor: pointer;
-            position: relative;
         }
 
         th, .row-head { background: var(--primary); color: white; font-weight: bold; }
 
-        .hl-line { outline: 2px solid #000; outline-offset: -2px; z-index: 5; }
-        .hidden-val { color: transparent !important; background: white !important; }
-        .wrong { background: #fee2e2 !important; animation: shake 0.2s; }
+        .hl-line { outline: 2px solid #000; outline-offset: -2px; z-index: 5; position: relative; }
+        .hidden-cell { color: transparent !important; }
+        .wrong { background: #fecaca !important; animation: shake 0.2s; }
 
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
         }
     </style>
 </head>
@@ -103,13 +107,13 @@
     <h1>Интерактивная таблица</h1>
 
     <div class="mode-selector">
-        <button class="mode-btn active" onclick="setMode('study')">Таблица</button>
-        <button class="mode-btn" onclick="setMode('test')">Проверка</button>
-        <button class="mode-btn" onclick="setMode('sprint')">Спринт</button>
+        <button id="btn-study" class="mode-btn active" onclick="changeMode('study')">Таблица</button>
+        <button id="btn-test" class="mode-btn" onclick="changeMode('test')">Проверка знаний</button>
+        <button id="btn-sprint" class="mode-btn" onclick="changeMode('sprint')">Спринт</button>
     </div>
 
     <div class="controls">
-        <div id="game-info"></div>
+        <div id="game-status"></div>
         <div class="control-group">
             <label>Размер: <span id="sizeVal">10</span></label>
             <input type="range" id="sizeRange" min="2" max="15" value="10">
@@ -126,15 +130,15 @@
 
     <script>
         const table = document.getElementById('pithTable');
-        const info = document.getElementById('game-info');
+        const status = document.getElementById('game-status');
         const sizeRange = document.getElementById('sizeRange');
         const opRange = document.getElementById('opRange');
         
-        let currentMode = 'study';
-        let sprintTask = null;
-        let timeLeft = 60;
-        let timer = null;
+        let mode = 'study';
+        let targetValue = null;
         let score = 0;
+        let timer = null;
+        let timeLeft = 60;
 
         const ops = [
             { sign: '×', fn: (a, b) => a * b },
@@ -143,12 +147,13 @@
             { sign: '÷', fn: (a, b) => (a / b).toFixed(2) }
         ];
 
-        function setMode(mode) {
-            currentMode = mode;
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase().includes(mode === 'study' ? 'табл' : mode === 'test' ? 'пров' : 'спр')));
+        function changeMode(newMode) {
+            mode = newMode;
             clearInterval(timer);
-            info.innerText = '';
-            if(mode === 'sprint') startSprint();
+            status.innerHTML = '';
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + newMode).classList.add('active');
+            if (mode === 'sprint') startSprint();
             update();
         }
 
@@ -172,9 +177,9 @@
                 for (let j = 1; j <= size; j++) {
                     let res = ops[opIdx].fn(i, j);
                     if (opIdx === 3) res = parseFloat(res);
-                    const isHidden = (currentMode === 'test' || currentMode === 'sprint');
+                    const isHidden = (mode === 'test' || mode === 'sprint');
                     html += `<td data-row="${i}" data-col="${j}" data-res="${res}" 
-                                class="${isHidden ? 'hidden-val' : ''}" 
+                                class="${isHidden ? 'hidden-cell' : ''}" 
                                 style="background-color: ${getColor(i, j, size)}">${res}</td>`;
                 }
                 html += '</tr>';
@@ -183,30 +188,31 @@
         }
 
         table.addEventListener('click', (e) => {
-            const target = e.target;
-            if (!target.dataset.res) return;
+            const cell = e.target;
+            if (!cell.dataset.res) return;
 
-            if (currentMode === 'study') {
+            if (mode === 'study') {
                 document.querySelectorAll('.hl-line').forEach(el => el.classList.remove('hl-line'));
-                table.querySelectorAll(`[data-row="${target.dataset.row}"]`).forEach(el => el.classList.add('hl-line'));
-                table.querySelectorAll(`[data-col="${target.dataset.col}"]`).forEach(el => el.classList.add('hl-line'));
+                table.querySelectorAll(`[data-row="${cell.dataset.row}"]`).forEach(el => el.classList.add('hl-line'));
+                table.querySelectorAll(`[data-col="${cell.dataset.col}"]`).forEach(el => el.classList.add('hl-line'));
             } 
-            else if (currentMode === 'test') {
-                const answer = prompt(`Сколько будет ${target.dataset.row} ${ops[opRange.value].sign} ${target.dataset.col}?`);
-                if (answer == target.dataset.res) {
-                    target.classList.remove('hidden-val');
-                } else if (answer !== null) {
-                    target.classList.add('wrong');
-                    setTimeout(() => target.classList.remove('wrong'), 500);
+            else if (mode === 'test') {
+                const guess = prompt(`${cell.dataset.row} ${ops[opRange.value].sign} ${cell.dataset.col} = ?`);
+                if (guess == cell.dataset.res) {
+                    cell.classList.remove('hidden-cell');
+                } else if (guess !== null) {
+                    cell.classList.add('wrong');
+                    setTimeout(() => cell.classList.remove('wrong'), 400);
                 }
             }
-            else if (currentMode === 'sprint') {
-                if (target.dataset.res == sprintTask.res && target.dataset.row == sprintTask.r && target.dataset.col == sprintTask.c) {
+            else if (mode === 'sprint') {
+                // ПРОВЕРКА: совпадает ли результат кликнутой клетки с целью
+                if (cell.dataset.res == targetValue) {
                     score++;
-                    newSprintTask();
+                    nextSprint();
                 } else {
-                    target.classList.add('wrong');
-                    setTimeout(() => target.classList.remove('wrong'), 500);
+                    cell.classList.add('wrong');
+                    setTimeout(() => cell.classList.remove('wrong'), 400);
                 }
             }
         });
@@ -214,30 +220,31 @@
         function startSprint() {
             score = 0;
             timeLeft = 60;
-            newSprintTask();
+            nextSprint();
             timer = setInterval(() => {
                 timeLeft--;
                 if (timeLeft <= 0) {
                     clearInterval(timer);
-                    alert(`Время вышло! Твой результат: ${score}`);
-                    setMode('study');
+                    alert("Время вышло! Твой счёт: " + score);
+                    changeMode('study');
                 } else {
-                    renderSprintInfo();
+                    showSprintUI();
                 }
             }, 1000);
         }
 
-        function newSprintTask() {
+        function nextSprint() {
             const size = parseInt(sizeRange.value);
+            // Генерируем случайные координаты, чтобы получить существующее в таблице число
             const r = Math.floor(Math.random() * size) + 1;
             const c = Math.floor(Math.random() * size) + 1;
-            const res = ops[opRange.value].fn(r, c);
-            sprintTask = { r, c, res: (opRange.value == 3 ? parseFloat(res) : res) };
-            renderSprintInfo();
+            let res = ops[opRange.value].fn(r, c);
+            targetValue = (opRange.value == 3 ? parseFloat(res) : res);
+            showSprintUI();
         }
 
-        function renderSprintInfo() {
-            info.innerHTML = `⏱ ${timeLeft} сек | ⭐ Счёт: ${score} <br> Найди: ${sprintTask.r} ${ops[opRange.value].sign} ${sprintTask.c}`;
+        function showSprintUI() {
+            status.innerHTML = `⏱ ${timeLeft}с | ⭐ Счёт: ${score}<br>Найди клетку с ответом: <span style="font-size: 1.5rem; color: #334155;">${targetValue}</span>`;
         }
 
         sizeRange.oninput = update;
