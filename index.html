@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Таблица Пифагора — Финальная версия</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --highlight: #e0e7ff;
+            --bg: #f8fafc;
+            --cell-size: 45px;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .control-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; }
+        label { font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase; }
+
+        /* Совместимость ползунков */
+        input[type=range] {
+            appearance: none; /* Стандарт */
+            -webkit-appearance: none; /* Chrome/Safari */
+            -moz-appearance: none; /* Firefox */
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        input[type=range]::-moz-range-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .table-container { overflow: auto; max-width: 98vw; padding: 10px; }
+        
+        table { 
+            border-collapse: collapse; 
+            table-layout: fixed; 
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        td, th {
+            border: 1px solid #e2e8f0;
+            width: var(--cell-size);
+            height: var(--cell-size);
+            text-align: center;
+            transition: background 0.1s ease;
+            font-size: 0.85rem;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        th, .row-head { background: var(--primary); color: white; font-weight: bold; }
+
+        .hl-line { background: var(--highlight) !important; }
+        .hl-main { 
+            background: #4f46e5 !important; 
+            color: white !important; 
+            font-weight: bold;
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
+        }
+        
+        #example-box {
+            margin-top: 20px;
+            padding: 15px 30px;
+            background: white;
+            border-radius: 12px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            min-width: 240px;
+            text-align: center;
+            border: 2px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Размер: <span id="sizeVal">10</span></label>
+            <input type="range" id="sizeRange" min="2" max="15" value="10">
+        </div>
+        <div class="control-group">
+            <label>Операция: <span id="opVal">×</span></label>
+            <input type="range" id="opRange" min="0" max="3" value="0" step="1">
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table id="pithTable"></table>
+    </div>
+
+    <div id="example-box">Нажмите на клетку</div>
+
+    <script>
+        const table = document.getElementById('pithTable');
+        const exampleBox = document.getElementById('example-box');
+        const sizeRange = document.getElementById('sizeRange');
+        const opRange = document.getElementById('opRange');
+        
+        const ops = [
+            { sign: '×', name: 'Умножение', fn: (a, b) => a * b },
+            { sign: '+', name: 'Сложение', fn: (a, b) => a + b },
+            { sign: '-', name: 'Вычитание', fn: (a, b) => a - b },
+            { sign: '÷', name: 'Деление', fn: (a, b) => (a / b).toFixed(2) }
+        ];
+
+        let lastClicked = null;
+
+        function update() {
+            const size = parseInt(sizeRange.value);
+            const opIdx = parseInt(opRange.value);
+            const currentOp = ops[opIdx];
+            
+            document.getElementById('sizeVal').innerText = size;
+            document.getElementById('opVal').innerText = currentOp.sign;
+            exampleBox.innerText = 'Нажмите на клетку';
+
+            let html = `<thead><tr><th data-type="corner">${currentOp.sign}</th>`;
+            for (let i = 1; i <= size; i++) html += `<th data-type="col-head" data-col="${i}">${i}</th>`;
+            html += '</tr></thead><tbody>';
+
+            for (let i = 1; i <= size; i++) {
+                html += `<tr><td class="row-head" data-type="row-head" data-row="${i}">${i}</td>`;
+                for (let j = 1; j <= size; j++) {
+                    let res = currentOp.fn(i, j);
+                    if (opIdx === 3) res = parseFloat(res); 
+                    html += `<td data-type="cell" data-row="${i}" data-col="${j}" data-res="${res}">${res}</td>`;
+                }
+                html += '</tr>';
+            }
+            table.innerHTML = html + '</tbody>';
+            lastClicked = null;
+        }
+
+        table.addEventListener('click', (e) => {
+            const target = e.target;
+            const type = target.dataset.type;
+            if (!type) return;
+
+            if (lastClicked === target) {
+                clearHighlight();
+                exampleBox.innerText = 'Нажмите на клетку';
+                lastClicked = null;
+                return;
+            }
+
+            clearHighlight();
+            lastClicked = target;
+            const row = target.dataset.row;
+            const col = target.dataset.col;
+            const currentOp = ops[opRange.value];
+
+            if (type === 'cell') {
+                highlightRow(row);
+                highlightCol(col);
+                target.classList.add('hl-main');
+                exampleBox.innerText = `${row} ${currentOp.sign} ${col} = ${target.dataset.res}`;
+            } else if (type === 'row-head') {
+                highlightRow(row);
+                target.classList.add('hl-main');
+                exampleBox.innerText = `Ряд ${row}`;
+            } else if (type === 'col-head') {
+                highlightCol(col);
+                target.classList.add('hl-main');
+                exampleBox.innerText = `Столбец ${col}`;
+            } else if (type === 'corner') {
+                target.classList.add('hl-main');
+                exampleBox.innerText = currentOp.name;
+            }
+        });
+
+        function highlightRow(r) {
+            table.querySelectorAll(`td[data-row="${r}"]`).forEach(c => c.classList.add('hl-line'));
+        }
+
+        function highlightCol(c) {
+            table.querySelectorAll(`[data-col="${c}"]`).forEach(el => el.classList.add('hl-line'));
+        }
+
+        function clearHighlight() {
+            table.querySelectorAll('.hl-line, .hl-main').forEach(el => el.classList.remove('hl-line', 'hl-main'));
+        }
+
+        sizeRange.oninput = update;
+        opRange.oninput = update;
+        update();
+    </script>
+</body>
+</html>
