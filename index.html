@@ -2,12 +2,14 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Таблица Пифагора — Финальная версия</title>
+    <title>Интерактивная таблица Виктора</title>
+    <!-- Подключаем твою иконку -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    
     <style>
         :root {
-            --primary: #6366f1;
-            --highlight: #e0e7ff;
-            --bg: #f8fafc;
+            --primary: #334155;
+            --bg: #f1f5f9;
             --cell-size: 45px;
         }
 
@@ -36,11 +38,9 @@
         .control-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; }
         label { font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase; }
 
-        /* Совместимость ползунков */
         input[type=range] {
-            appearance: none; /* Стандарт */
-            -webkit-appearance: none; /* Chrome/Safari */
-            -moz-appearance: none; /* Firefox */
+            appearance: none;
+            -webkit-appearance: none;
             width: 100%;
             height: 6px;
             background: #e2e8f0;
@@ -50,20 +50,7 @@
 
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            background: var(--primary);
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        input[type=range]::-moz-range-thumb {
-            appearance: none;
-            width: 18px;
-            height: 18px;
+            width: 18px; height: 18px;
             background: var(--primary);
             border-radius: 50%;
             cursor: pointer;
@@ -83,24 +70,34 @@
         }
 
         td, th {
-            border: 1px solid #e2e8f0;
+            border: 1px solid rgba(0,0,0,0.05);
             width: var(--cell-size);
             height: var(--cell-size);
             text-align: center;
-            transition: background 0.1s ease;
             font-size: 0.85rem;
             box-sizing: border-box;
             cursor: pointer;
+            transition: transform 0.1s;
         }
 
-        th, .row-head { background: var(--primary); color: white; font-weight: bold; }
+        th, .row-head { 
+            background: var(--primary); 
+            color: white; 
+            font-weight: bold; 
+            z-index: 10;
+        }
 
-        .hl-line { background: var(--highlight) !important; }
+        /* Линии выделения теперь полупрозрачные, чтобы видеть градиент */
+        .hl-line { outline: 2px solid #000; outline-offset: -2px; z-index: 5; }
+        
         .hl-main { 
-            background: #4f46e5 !important; 
-            color: white !important; 
+            background: white !important; 
+            color: black !important; 
             font-weight: bold;
-            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            transform: scale(1.1);
+            z-index: 20;
+            position: relative;
         }
         
         #example-box {
@@ -135,7 +132,7 @@
         <table id="pithTable"></table>
     </div>
 
-    <div id="example-box">Нажмите на клетку</div>
+    <div id="example-box">Нажми на клетку</div>
 
     <script>
         const table = document.getElementById('pithTable');
@@ -152,6 +149,13 @@
 
         let lastClicked = null;
 
+        // Функция для расчета цвета (HSL: 0 - красный, 200 - голубой)
+        function getColor(i, j, size) {
+            const ratio = (i + j - 2) / (size * 2 - 2);
+            const hue = ratio * 200; // От 0 (красный) до 200 (голубой)
+            return `hsl(${hue}, 80%, 85%)`;
+        }
+
         function update() {
             const size = parseInt(sizeRange.value);
             const opIdx = parseInt(opRange.value);
@@ -159,7 +163,7 @@
             
             document.getElementById('sizeVal').innerText = size;
             document.getElementById('opVal').innerText = currentOp.sign;
-            exampleBox.innerText = 'Нажмите на клетку';
+            exampleBox.innerText = 'Нажми на клетку';
 
             let html = `<thead><tr><th data-type="corner">${currentOp.sign}</th>`;
             for (let i = 1; i <= size; i++) html += `<th data-type="col-head" data-col="${i}">${i}</th>`;
@@ -169,8 +173,9 @@
                 html += `<tr><td class="row-head" data-type="row-head" data-row="${i}">${i}</td>`;
                 for (let j = 1; j <= size; j++) {
                     let res = currentOp.fn(i, j);
-                    if (opIdx === 3) res = parseFloat(res); 
-                    html += `<td data-type="cell" data-row="${i}" data-col="${j}" data-res="${res}">${res}</td>`;
+                    if (opIdx === 3) res = parseFloat(res);
+                    const color = getColor(i, j, size);
+                    html += `<td data-type="cell" data-row="${i}" data-col="${j}" data-res="${res}" style="background-color: ${color}">${res}</td>`;
                 }
                 html += '</tr>';
             }
@@ -185,7 +190,7 @@
 
             if (lastClicked === target) {
                 clearHighlight();
-                exampleBox.innerText = 'Нажмите на клетку';
+                exampleBox.innerText = 'Нажми на клетку';
                 lastClicked = null;
                 return;
             }
