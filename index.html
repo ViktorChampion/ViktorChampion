@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Тренажер Виктора: Столбики</title>
+    <title>Интерактивная таблица</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <style>
         :root {
@@ -22,12 +22,33 @@
             user-select: none;
         }
 
-        .main-layout {
+        h1 { color: var(--primary); margin-bottom: 10px; }
+
+        /* Переключатель режимов */
+        .mode-selector {
             display: flex;
-            gap: 30px;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 5px;
+            background: #e2e8f0;
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+            color: #64748b;
+            background: transparent;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         .controls {
@@ -38,15 +59,19 @@
             margin-bottom: 20px;
             width: 100%;
             max-width: 400px;
+            text-align: center;
         }
 
-        .control-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; }
-        label { font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase; }
+        .control-group { margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; }
+        label { font-weight: 600; font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
 
         input[type=range] { appearance: none; width: 100%; height: 6px; background: #e2e8f0; border-radius: 5px; outline: none; }
-        input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: var(--primary); border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: var(--primary); border-radius: 50%; cursor: pointer; border: 2px solid white; }
 
-        .table-container { overflow: auto; background: white; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); padding: 5px; }
+        /* Игровые элементы */
+        #game-info { font-size: 1.2rem; font-weight: bold; color: #ef4444; margin-bottom: 10px; min-height: 1.5rem; }
+
+        .table-container { overflow: auto; max-width: 98vw; padding: 10px; background: white; border-radius: 12px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
         
         table { border-collapse: collapse; table-layout: fixed; }
         td, th {
@@ -57,41 +82,34 @@
             font-size: 0.85rem;
             box-sizing: border-box;
             cursor: pointer;
+            position: relative;
         }
 
         th, .row-head { background: var(--primary); color: white; font-weight: bold; }
 
-        .hl-line { outline: 2px solid #000; outline-offset: -2px; }
-        .hl-main { background: white !important; color: black !important; font-weight: bold; box-shadow: 0 0 15px rgba(0,0,0,0.3); transform: scale(1.05); position: relative; z-index: 5; }
-        
-        /* Стили для СТОЛБИКА */
-        .sidebar {
-            background: white;
-            padding: 25px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            min-width: 200px;
-            border-left: 5px solid var(--primary);
+        .hl-line { outline: 2px solid #000; outline-offset: -2px; z-index: 5; }
+        .hidden-val { color: transparent !important; background: white !important; }
+        .wrong { background: #fee2e2 !important; animation: shake 0.2s; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
         }
-
-        .calc-title { color: #64748b; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; }
-
-        .math-column {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.6rem;
-            line-height: 1.2;
-            text-align: right;
-            display: inline-block;
-        }
-
-        .line { border-top: 3px solid #334155; margin-top: 5px; margin-bottom: 5px; }
-        .op-sign { float: left; margin-right: 10px; }
-        .partial { color: #64748b; font-size: 1.2rem; }
     </style>
 </head>
 <body>
 
+    <h1>Интерактивная таблица</h1>
+
+    <div class="mode-selector">
+        <button class="mode-btn active" onclick="setMode('study')">Таблица</button>
+        <button class="mode-btn" onclick="setMode('test')">Проверка</button>
+        <button class="mode-btn" onclick="setMode('sprint')">Спринт</button>
+    </div>
+
     <div class="controls">
+        <div id="game-info"></div>
         <div class="control-group">
             <label>Размер: <span id="sizeVal">10</span></label>
             <input type="range" id="sizeRange" min="2" max="15" value="10">
@@ -102,31 +120,37 @@
         </div>
     </div>
 
-    <div class="main-layout">
-        <div class="table-container">
-            <table id="pithTable"></table>
-        </div>
-
-        <div class="sidebar" id="sidebar">
-            <div class="calc-title">Решение столбиком</div>
-            <div id="columnResult" class="math-column">Нажми на ячейку</div>
-        </div>
+    <div class="table-container">
+        <table id="pithTable"></table>
     </div>
 
     <script>
         const table = document.getElementById('pithTable');
-        const colRes = document.getElementById('columnResult');
+        const info = document.getElementById('game-info');
         const sizeRange = document.getElementById('sizeRange');
         const opRange = document.getElementById('opRange');
         
+        let currentMode = 'study';
+        let sprintTask = null;
+        let timeLeft = 60;
+        let timer = null;
+        let score = 0;
+
         const ops = [
-            { sign: '×', name: 'Умножение', fn: (a, b) => a * b },
-            { sign: '+', name: 'Сложение', fn: (a, b) => a + b },
-            { sign: '-', name: 'Вычитание', fn: (a, b) => a - b },
-            { sign: '÷', name: 'Деление', fn: (a, b) => (a / b).toFixed(2) }
+            { sign: '×', fn: (a, b) => a * b },
+            { sign: '+', fn: (a, b) => a + b },
+            { sign: '-', fn: (a, b) => a - b },
+            { sign: '÷', fn: (a, b) => (a / b).toFixed(2) }
         ];
 
-        let lastClicked = null;
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase().includes(mode === 'study' ? 'табл' : mode === 'test' ? 'пров' : 'спр')));
+            clearInterval(timer);
+            info.innerText = '';
+            if(mode === 'sprint') startSprint();
+            update();
+        }
 
         function getColor(i, j, size) {
             const ratio = (i + j - 2) / (size * 2 - 2);
@@ -136,89 +160,84 @@
         function update() {
             const size = parseInt(sizeRange.value);
             const opIdx = parseInt(opRange.value);
-            const currentOp = ops[opIdx];
-            
             document.getElementById('sizeVal').innerText = size;
-            document.getElementById('opVal').innerText = currentOp.sign;
-            colRes.innerHTML = "Выбери ячейку";
+            document.getElementById('opVal').innerText = ops[opIdx].sign;
 
-            let html = `<thead><tr><th data-type="corner">${currentOp.sign}</th>`;
-            for (let i = 1; i <= size; i++) html += `<th data-type="col-head" data-col="${i}">${i}</th>`;
+            let html = `<thead><tr><th>${ops[opIdx].sign}</th>`;
+            for (let i = 1; i <= size; i++) html += `<th>${i}</th>`;
             html += '</tr></thead><tbody>';
 
             for (let i = 1; i <= size; i++) {
-                html += `<tr><td class="row-head" data-type="row-head" data-row="${i}">${i}</td>`;
+                html += `<tr><td class="row-head">${i}</td>`;
                 for (let j = 1; j <= size; j++) {
-                    let res = currentOp.fn(i, j);
+                    let res = ops[opIdx].fn(i, j);
                     if (opIdx === 3) res = parseFloat(res);
-                    html += `<td data-type="cell" data-row="${i}" data-col="${j}" data-res="${res}" style="background-color: ${getColor(i, j, size)}">${res}</td>`;
+                    const isHidden = (currentMode === 'test' || currentMode === 'sprint');
+                    html += `<td data-row="${i}" data-col="${j}" data-res="${res}" 
+                                class="${isHidden ? 'hidden-val' : ''}" 
+                                style="background-color: ${getColor(i, j, size)}">${res}</td>`;
                 }
                 html += '</tr>';
             }
             table.innerHTML = html + '</tbody>';
-            lastClicked = null;
-        }
-
-        function renderColumn(a, b, opIdx) {
-            const op = ops[opIdx];
-            const res = op.fn(a, b);
-
-            if (opIdx === 1 || opIdx === 2) { // Сложение и Вычитание
-                colRes.innerHTML = `
-                    <div>&nbsp;${a}</div>
-                    <div><span class="op-sign">${op.sign}</span>${b}</div>
-                    <div class="line"></div>
-                    <div>${res}</div>
-                `;
-            } 
-            else if (opIdx === 0) { // Умножение
-                let html = `<div>&nbsp;${a}</div><div><span class="op-sign">×</span>${b}</div><div class="line"></div>`;
-                const bStr = b.toString();
-                if (bStr.length > 1) {
-                    const p1 = a * parseInt(bStr[1]);
-                    const p2 = a * parseInt(bStr[0]);
-                    html += `<div class="partial">${p1}</div>`;
-                    html += `<div class="partial">+${p2}0</div>`;
-                    html += `<div class="line"></div>`;
-                }
-                html += `<div>${res}</div>`;
-                colRes.innerHTML = html;
-            }
-            else if (opIdx === 3) { // Деление (Уголок)
-                colRes.innerHTML = `
-                    <div style="text-align: left;">
-                        ${a} | <span style="border-bottom: 2px solid #000">${b}</span><br>
-                        &nbsp;&nbsp; | ${parseFloat(res)}
-                    </div>
-                `;
-            }
         }
 
         table.addEventListener('click', (e) => {
             const target = e.target;
-            if (target.dataset.type !== 'cell') return;
+            if (!target.dataset.res) return;
 
-            if (lastClicked === target) {
-                clearHighlight();
-                colRes.innerHTML = "Нажми на клетку";
-                lastClicked = null;
-                return;
+            if (currentMode === 'study') {
+                document.querySelectorAll('.hl-line').forEach(el => el.classList.remove('hl-line'));
+                table.querySelectorAll(`[data-row="${target.dataset.row}"]`).forEach(el => el.classList.add('hl-line'));
+                table.querySelectorAll(`[data-col="${target.dataset.col}"]`).forEach(el => el.classList.add('hl-line'));
+            } 
+            else if (currentMode === 'test') {
+                const answer = prompt(`Сколько будет ${target.dataset.row} ${ops[opRange.value].sign} ${target.dataset.col}?`);
+                if (answer == target.dataset.res) {
+                    target.classList.remove('hidden-val');
+                } else if (answer !== null) {
+                    target.classList.add('wrong');
+                    setTimeout(() => target.classList.remove('wrong'), 500);
+                }
             }
-
-            clearHighlight();
-            lastClicked = target;
-            const r = target.dataset.row;
-            const c = target.dataset.col;
-            
-            target.classList.add('hl-main');
-            table.querySelectorAll(`[data-row="${r}"]`).forEach(el => el.classList.add('hl-line'));
-            table.querySelectorAll(`[data-col="${c}"]`).forEach(el => el.classList.add('hl-line'));
-
-            renderColumn(parseInt(r), parseInt(c), opRange.value);
+            else if (currentMode === 'sprint') {
+                if (target.dataset.res == sprintTask.res && target.dataset.row == sprintTask.r && target.dataset.col == sprintTask.c) {
+                    score++;
+                    newSprintTask();
+                } else {
+                    target.classList.add('wrong');
+                    setTimeout(() => target.classList.remove('wrong'), 500);
+                }
+            }
         });
 
-        function clearHighlight() {
-            table.querySelectorAll('.hl-line, .hl-main').forEach(el => el.classList.remove('hl-line', 'hl-main'));
+        function startSprint() {
+            score = 0;
+            timeLeft = 60;
+            newSprintTask();
+            timer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    alert(`Время вышло! Твой результат: ${score}`);
+                    setMode('study');
+                } else {
+                    renderSprintInfo();
+                }
+            }, 1000);
+        }
+
+        function newSprintTask() {
+            const size = parseInt(sizeRange.value);
+            const r = Math.floor(Math.random() * size) + 1;
+            const c = Math.floor(Math.random() * size) + 1;
+            const res = ops[opRange.value].fn(r, c);
+            sprintTask = { r, c, res: (opRange.value == 3 ? parseFloat(res) : res) };
+            renderSprintInfo();
+        }
+
+        function renderSprintInfo() {
+            info.innerHTML = `⏱ ${timeLeft} сек | ⭐ Счёт: ${score} <br> Найди: ${sprintTask.r} ${ops[opRange.value].sign} ${sprintTask.c}`;
         }
 
         sizeRange.oninput = update;
